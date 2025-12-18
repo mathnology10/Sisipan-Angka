@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="id" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mathnology Number Game</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    @keyframes correct {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    
+    @keyframes wrong {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
+    }
+    
+    .bounce-animation {
+      animation: bounce 0.5s ease-in-out;
+    }
+    
+    .correct-animation {
+      animation: correct 0.6s ease-in-out;
+    }
+    
+    .wrong-animation {
+      animation: wrong 0.4s ease-in-out;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full overflow-auto"></div>
+  <script>
+    const defaultConfig = {
+      background_color: "#4f46e5",
+      surface_color: "#ffffff",
+      text_color: "#1f2937",
+      primary_action_color: "#10b981",
+      secondary_action_color: "#ef4444",
+      font_family: "system-ui",
+      font_size: 16,
+      game_title: "Tebak Angka",
+      question_text: "Angka mana yang berada di antara",
+      branding_text: "MATHNOLOGY"
+    };
+
+    let currentQuestion = null;
+    let score = 0;
+    let questionsAsked = 0;
+
+    function generateQuestion() {
+      const min = 10;
+      const max = 89;
+      
+      // Rentang antara num1 dan num2 adalah 5-19
+      const gap = 5 + Math.floor(Math.random() * 15);
+      let num1 = Math.floor(Math.random() * (max - min - gap)) + min;
+      let num2 = num1 + gap;
+      
+      // Jawaban benar: angka di antara num1 dan num2
+      const validAnswers = [];
+      for (let i = num1 + 1; i < num2; i++) {
+        validAnswers.push(i);
+      }
+      const correctAnswer = validAnswers[Math.floor(Math.random() * validAnswers.length)];
+      
+      const options = [correctAnswer];
+      
+      // Tambahkan 2 angka yang DI LUAR interval
+      const outsideNumbers = [];
+      
+      // Angka di bawah num1
+      for (let i = 10; i < num1; i++) {
+        outsideNumbers.push(i);
+      }
+      
+      // Angka di atas num2
+      for (let i = num2 + 1; i <= 99; i++) {
+        outsideNumbers.push(i);
+      }
+      
+      // Pilih 2 angka acak dari luar interval
+      while (options.length < 3 && outsideNumbers.length > 0) {
+        const randomIndex = Math.floor(Math.random() * outsideNumbers.length);
+        const selectedNumber = outsideNumbers[randomIndex];
+        
+        if (!options.includes(selectedNumber)) {
+          options.push(selectedNumber);
+        }
+        
+        outsideNumbers.splice(randomIndex, 1);
+      }
+      
+      // Acak urutan pilihan
+      for (let i = options.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [options[i], options[j]] = [options[j], options[i]];
+      }
+      
+      return {
+        num1,
+        num2,
+        correctAnswer,
+        options
+      };
+    }
+
+    function speak(text) {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'id-ID';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function checkAnswer(selected) {
+      const buttons = document.querySelectorAll('.option-button');
+      buttons.forEach(btn => btn.disabled = true);
+      
+      const selectedButton = Array.from(buttons).find(btn => 
+        parseInt(btn.textContent) === selected
+      );
+      
+      if (selected === currentQuestion.correctAnswer) {
+        score++;
+        selectedButton.classList.add('correct-animation');
+        selectedButton.style.backgroundColor = window.elementSdk.config.primary_action_color || defaultConfig.primary_action_color;
+        selectedButton.style.color = window.elementSdk.config.surface_color || defaultConfig.surface_color;
+        
+        const correctPhrases = [
+          'Benar! Hebat sekali!',
+          'Tepat sekali!',
+          'Bagus! Jawabanmu benar!',
+          'Pintar! Kamu benar!',
+          'Sempurna! Jawaban yang tepat!'
+        ];
+        const randomPhrase = correctPhrases[Math.floor(Math.random() * correctPhrases.length)];
+        speak(randomPhrase);
+        
+        setTimeout(() => {
+          questionsAsked++;
+          nextQuestion();
+        }, 1500);
+      } else {
+        selectedButton.classList.add('wrong-animation');
+        selectedButton.style.backgroundColor = window.elementSdk.config.secondary_action_color || defaultConfig.secondary_action_color;
+        selectedButton.style.color = window.elementSdk.config.surface_color || defaultConfig.surface_color;
+        
+        const correctButton = Array.from(buttons).find(btn => 
+          parseInt(btn.textContent) === currentQuestion.correctAnswer
+        );
+        correctButton.style.backgroundColor = window.elementSdk.config.primary_action_color || defaultConfig.primary_action_color;
+        correctButton.style.color = window.elementSdk.config.surface_color || defaultConfig.surface_color;
+        
+        const wrongPhrases = [
+          'Salah! Coba lagi.',
+          'Oops! Jawabanmu kurang tepat.',
+          'Belum benar. Jawaban yang tepat adalah ' + currentQuestion.correctAnswer,
+          'Sayang sekali, masih salah.',
+          'Belum tepat. Semangat!'
+        ];
+        const randomPhrase = wrongPhrases[Math.floor(Math.random() * wrongPhrases.length)];
+        speak(randomPhrase);
+        
+        setTimeout(() => {
+          questionsAsked++;
+          nextQuestion();
+        }, 2000);
+      }
+    }
+
+    function nextQuestion() {
+      currentQuestion = generateQuestion();
+      renderGame();
+    }
+
+    function resetGame() {
+      score = 0;
+      questionsAsked = 0;
+      nextQuestion();
+    }
+
+    function renderGame() {
+      const config = window.elementSdk?.config || defaultConfig;
+      const customFont = config.font_family || defaultConfig.font_family;
+      const baseSize = config.font_size || defaultConfig.font_size;
+      const baseFontStack = 'system-ui, -apple-system, sans-serif';
+      
+      const app = document.getElementById('app');
+      
+      app.innerHTML = `
+        <div style="background: ${config.background_color}; font-family: ${customFont}, ${baseFontStack};" class="h-full w-full flex flex-col items-center justify-center p-6">
+          <div style="background: ${config.surface_color};" class="w-full max-w-2xl rounded-3xl shadow-2xl p-8 relative">
+            <div class="absolute top-4 right-4 flex gap-4">
+              <div style="background: ${config.primary_action_color}; color: ${config.surface_color}; font-size: ${baseSize * 0.9}px;" class="px-4 py-2 rounded-full font-bold shadow-lg">
+                Skor: ${score}/${questionsAsked}
+              </div>
+            </div>
+            
+            <h1 style="color: ${config.text_color}; font-size: ${baseSize * 2.5}px;" class="text-center font-bold mb-8 mt-8">
+              ${config.game_title}
+            </h1>
+            
+            <div class="mb-8">
+              <p style="color: ${config.text_color}; font-size: ${baseSize * 1.25}px;" class="text-center mb-6">
+                ${config.question_text}
+              </p>
+              
+              <div class="flex items-center justify-center gap-4 mb-8">
+                <div style="background: ${config.background_color}; color: ${config.surface_color}; font-size: ${baseSize * 2.5}px;" class="w-24 h-24 rounded-2xl flex items-center justify-center font-bold shadow-lg bounce-animation">
+                  ${currentQuestion.num1}
+                </div>
+                <span style="color: ${config.text_color}; font-size: ${baseSize * 1.5}px;" class="font-bold">dan</span>
+                <div style="background: ${config.background_color}; color: ${config.surface_color}; font-size: ${baseSize * 2.5}px;" class="w-24 h-24 rounded-2xl flex items-center justify-center font-bold shadow-lg bounce-animation">
+                  ${currentQuestion.num2}
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-3 gap-4">
+                ${currentQuestion.options.map(option => `
+                  <button 
+                    onclick="checkAnswer(${option})"
+                    style="background: ${config.background_color}; color: ${config.surface_color}; font-size: ${baseSize * 1.5}px;"
+                    class="option-button h-20 rounded-xl font-bold shadow-lg hover:opacity-90 transition-all transform hover:scale-105"
+                  >
+                    ${option}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+            
+            <button 
+              onclick="resetGame()"
+              style="background: ${config.secondary_action_color}; color: ${config.surface_color}; font-size: ${baseSize}px;"
+              class="w-full py-3 rounded-xl font-bold shadow-lg hover:opacity-90 transition-all"
+            >
+              Reset Game
+            </button>
+          </div>
+          
+          <div style="color: ${config.surface_color}; font-size: ${baseSize * 2}px;" class="mt-8 font-bold tracking-widest">
+            ${config.branding_text}
+          </div>
+        </div>
+      `;
+    }
+
+    async function onConfigChange(config) {
+      renderGame();
+    }
+
+    const element = {
+      defaultConfig,
+      onConfigChange,
+      mapToCapabilities: (config) => ({
+        recolorables: [
+          {
+            get: () => config.background_color || defaultConfig.background_color,
+            set: (value) => {
+              config.background_color = value;
+              window.elementSdk.setConfig({ background_color: value });
+            }
+          },
+          {
+            get: () => config.surface_color || defaultConfig.surface_color,
+            set: (value) => {
+              config.surface_color = value;
+              window.elementSdk.setConfig({ surface_color: value });
+            }
+          },
+          {
+            get: () => config.text_color || defaultConfig.text_color,
+            set: (value) => {
+              config.text_color = value;
+              window.elementSdk.setConfig({ text_color: value });
+            }
+          },
+          {
+            get: () => config.primary_action_color || defaultConfig.primary_action_color,
+            set: (value) => {
+              config.primary_action_color = value;
+              window.elementSdk.setConfig({ primary_action_color: value });
+            }
+          },
+          {
+            get: () => config.secondary_action_color || defaultConfig.secondary_action_color,
+            set: (value) => {
+              config.secondary_action_color = value;
+              window.elementSdk.setConfig({ secondary_action_color: value });
+            }
+          }
+        ],
+        borderables: [],
+        fontEditable: {
+          get: () => config.font_family || defaultConfig.font_family,
+          set: (value) => {
+            config.font_family = value;
+            window.elementSdk.setConfig({ font_family: value });
+          }
+        },
+        fontSizeable: {
+          get: () => config.font_size || defaultConfig.font_size,
+          set: (value) => {
+            config.font_size = value;
+            window.elementSdk.setConfig({ font_size: value });
+          }
+        }
+      }),
+      mapToEditPanelValues: (config) => new Map([
+        ["game_title", config.game_title || defaultConfig.game_title],
+        ["question_text", config.question_text || defaultConfig.question_text],
+        ["branding_text", config.branding_text || defaultConfig.branding_text]
+      ])
+    };
+
+    if (window.elementSdk) {
+      window.elementSdk.init(element);
+    }
+
+    currentQuestion = generateQuestion();
+    renderGame();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9afb2fa5526a1e93',t:'MTc2NjAyNDQ3OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
