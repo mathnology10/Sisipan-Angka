@@ -11,48 +11,98 @@
       box-sizing: border-box;
     }
     
-    @keyframes bounce {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
     
-    @keyframes correct {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.2); }
-      100% { transform: scale(1); }
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.08);
+      }
     }
     
-    @keyframes wrong {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-10px); }
-      75% { transform: translateX(10px); }
+    @keyframes correctPulse {
+      0% {
+        transform: scale(1);
+      }
+      30% {
+        transform: scale(1.25);
+      }
+      60% {
+        transform: scale(0.95);
+      }
+      100% {
+        transform: scale(1);
+      }
     }
     
-    .bounce-animation {
-      animation: bounce 0.5s ease-in-out;
+    @keyframes shake {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      20%, 60% {
+        transform: translateX(-15px);
+      }
+      40%, 80% {
+        transform: translateX(15px);
+      }
+    }
+    
+    .slide-in {
+      animation: slideIn 0.5s ease-out;
+    }
+    
+    .pulse-animation {
+      animation: pulse 1s ease-in-out infinite;
     }
     
     .correct-animation {
-      animation: correct 0.6s ease-in-out;
+      animation: correctPulse 0.7s ease-out;
     }
     
-    .wrong-animation {
-      animation: wrong 0.4s ease-in-out;
+    .shake-animation {
+      animation: shake 0.5s ease-out;
+    }
+    
+    .answer-btn {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    
+    @media (max-width: 640px) {
+      .number-box {
+        width: 80px !important;
+        height: 80px !important;
+      }
+      
+      .answer-btn {
+        min-height: 70px !important;
+      }
     }
   </style>
   <style>@view-transition { navigation: auto; }</style>
   <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
  </head>
  <body class="h-full">
-  <div id="app" class="h-full w-full overflow-auto"></div>
+  <main id="app" class="h-full w-full overflow-auto"></main>
   <script>
     const defaultConfig = {
-      background_color: "#4f46e5",
+      background_color: "#6366f1",
       surface_color: "#ffffff",
-      text_color: "#1f2937",
-      primary_action_color: "#10b981",
-      secondary_action_color: "#ef4444",
-      font_family: "system-ui",
+      text_color: "#1e293b",
+      primary_action_color: "#22c55e",
+      secondary_action_color: "#f43f5e",
+      font_family: "Inter",
       font_size: 16,
       game_title: "Tebak Angka",
       question_text: "Angka mana yang berada di antara",
@@ -61,66 +111,47 @@
 
     let currentQuestion = null;
     let score = 0;
-    let questionsAsked = 0;
+    let totalQuestions = 0;
 
     function generateQuestion() {
-      const min = 10;
-      const max = 89;
+      const minGap = 5;
+      const maxGap = 19;
+      const gap = minGap + Math.floor(Math.random() * (maxGap - minGap + 1));
       
-      // Rentang antara num1 dan num2 adalah 5-19
-      const gap = 5 + Math.floor(Math.random() * 15);
-      let num1 = Math.floor(Math.random() * (max - min - gap)) + min;
-      let num2 = num1 + gap;
+      const num1 = 10 + Math.floor(Math.random() * (89 - gap - 10));
+      const num2 = num1 + gap;
       
-      // Jawaban benar: angka di antara num1 dan num2
-      const validAnswers = [];
+      const middleNumbers = [];
       for (let i = num1 + 1; i < num2; i++) {
-        validAnswers.push(i);
+        middleNumbers.push(i);
       }
-      const correctAnswer = validAnswers[Math.floor(Math.random() * validAnswers.length)];
+      const correctAnswer = middleNumbers[Math.floor(Math.random() * middleNumbers.length)];
       
-      const options = [correctAnswer];
-      
-      // Tambahkan 2 angka yang DI LUAR interval
       const outsideNumbers = [];
-      
-      // Angka di bawah num1
       for (let i = 10; i < num1; i++) {
         outsideNumbers.push(i);
       }
-      
-      // Angka di atas num2
       for (let i = num2 + 1; i <= 99; i++) {
         outsideNumbers.push(i);
       }
       
-      // Pilih 2 angka acak dari luar interval
-      while (options.length < 3 && outsideNumbers.length > 0) {
+      const wrongAnswers = [];
+      while (wrongAnswers.length < 2 && outsideNumbers.length > 0) {
         const randomIndex = Math.floor(Math.random() * outsideNumbers.length);
-        const selectedNumber = outsideNumbers[randomIndex];
-        
-        if (!options.includes(selectedNumber)) {
-          options.push(selectedNumber);
-        }
-        
+        wrongAnswers.push(outsideNumbers[randomIndex]);
         outsideNumbers.splice(randomIndex, 1);
       }
       
-      // Acak urutan pilihan
+      const options = [correctAnswer, ...wrongAnswers];
       for (let i = options.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [options[i], options[j]] = [options[j], options[i]];
       }
       
-      return {
-        num1,
-        num2,
-        correctAnswer,
-        options
-      };
+      return { num1, num2, correctAnswer, options };
     }
 
-    function speak(text) {
+    function speakText(text) {
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'id-ID';
@@ -130,74 +161,82 @@
       }
     }
 
-    function checkAnswer(selected) {
-      const buttons = document.querySelectorAll('.option-button');
+    function handleAnswer(selectedNumber) {
+      const buttons = document.querySelectorAll('.answer-btn');
       buttons.forEach(btn => btn.disabled = true);
       
-      const selectedButton = Array.from(buttons).find(btn => 
-        parseInt(btn.textContent) === selected
+      const selectedBtn = Array.from(buttons).find(btn => 
+        parseInt(btn.dataset.value) === selectedNumber
       );
       
-      if (selected === currentQuestion.correctAnswer) {
+      const correctBtn = Array.from(buttons).find(btn => 
+        parseInt(btn.dataset.value) === currentQuestion.correctAnswer
+      );
+      
+      totalQuestions++;
+      
+      if (selectedNumber === currentQuestion.correctAnswer) {
         score++;
-        selectedButton.classList.add('correct-animation');
-        selectedButton.style.backgroundColor = window.elementSdk.config.primary_action_color || defaultConfig.primary_action_color;
-        selectedButton.style.color = window.elementSdk.config.surface_color || defaultConfig.surface_color;
+        selectedBtn.classList.add('correct-animation');
+        selectedBtn.style.backgroundColor = window.elementSdk?.config.primary_action_color || defaultConfig.primary_action_color;
+        selectedBtn.style.color = window.elementSdk?.config.surface_color || defaultConfig.surface_color;
         
-        const correctPhrases = [
+        const correctMessages = [
           'Benar! Hebat sekali!',
           'Tepat sekali!',
           'Bagus! Jawabanmu benar!',
           'Pintar! Kamu benar!',
           'Sempurna! Jawaban yang tepat!'
         ];
-        const randomPhrase = correctPhrases[Math.floor(Math.random() * correctPhrases.length)];
-        speak(randomPhrase);
+        speakText(correctMessages[Math.floor(Math.random() * correctMessages.length)]);
         
         setTimeout(() => {
-          questionsAsked++;
-          nextQuestion();
+          loadNextQuestion();
         }, 1500);
       } else {
-        selectedButton.classList.add('wrong-animation');
-        selectedButton.style.backgroundColor = window.elementSdk.config.secondary_action_color || defaultConfig.secondary_action_color;
-        selectedButton.style.color = window.elementSdk.config.surface_color || defaultConfig.surface_color;
+        selectedBtn.classList.add('shake-animation');
+        selectedBtn.style.backgroundColor = window.elementSdk?.config.secondary_action_color || defaultConfig.secondary_action_color;
+        selectedBtn.style.color = window.elementSdk?.config.surface_color || defaultConfig.surface_color;
         
-        const correctButton = Array.from(buttons).find(btn => 
-          parseInt(btn.textContent) === currentQuestion.correctAnswer
-        );
-        correctButton.style.backgroundColor = window.elementSdk.config.primary_action_color || defaultConfig.primary_action_color;
-        correctButton.style.color = window.elementSdk.config.surface_color || defaultConfig.surface_color;
+        correctBtn.style.backgroundColor = window.elementSdk?.config.primary_action_color || defaultConfig.primary_action_color;
+        correctBtn.style.color = window.elementSdk?.config.surface_color || defaultConfig.surface_color;
         
-        const wrongPhrases = [
+        const wrongMessages = [
           'Salah! Coba lagi.',
           'Oops! Jawabanmu kurang tepat.',
-          'Belum benar. Jawaban yang tepat adalah ' + currentQuestion.correctAnswer,
+          `Belum benar. Jawaban yang tepat adalah ${currentQuestion.correctAnswer}`,
           'Sayang sekali, masih salah.',
           'Belum tepat. Semangat!'
         ];
-        const randomPhrase = wrongPhrases[Math.floor(Math.random() * wrongPhrases.length)];
-        speak(randomPhrase);
+        speakText(wrongMessages[Math.floor(Math.random() * wrongMessages.length)]);
         
         setTimeout(() => {
-          questionsAsked++;
-          nextQuestion();
+          loadNextQuestion();
         }, 2000);
       }
+      
+      updateScore();
     }
 
-    function nextQuestion() {
+    function loadNextQuestion() {
       currentQuestion = generateQuestion();
-      renderGame();
+      render();
     }
 
     function resetGame() {
       score = 0;
-      questionsAsked = 0;
-      nextQuestion();
+      totalQuestions = 0;
+      loadNextQuestion();
     }
 
-    function renderGame() {
+    function updateScore() {
+      const scoreElement = document.getElementById('score-display');
+      if (scoreElement) {
+        scoreElement.textContent = `${score}/${totalQuestions}`;
+      }
+    }
+
+    function render() {
       const config = window.elementSdk?.config || defaultConfig;
       const customFont = config.font_family || defaultConfig.font_family;
       const baseSize = config.font_size || defaultConfig.font_size;
@@ -206,39 +245,41 @@
       const app = document.getElementById('app');
       
       app.innerHTML = `
-        <div style="background: ${config.background_color}; font-family: ${customFont}, ${baseFontStack};" class="h-full w-full flex flex-col items-center justify-center p-6">
-          <div style="background: ${config.surface_color};" class="w-full max-w-2xl rounded-3xl shadow-2xl p-8 relative">
-            <div class="absolute top-4 right-4 flex gap-4">
-              <div style="background: ${config.primary_action_color}; color: ${config.surface_color}; font-size: ${baseSize * 0.9}px;" class="px-4 py-2 rounded-full font-bold shadow-lg">
-                Skor: ${score}/${questionsAsked}
+        <div style="background: linear-gradient(135deg, ${config.background_color} 0%, ${adjustBrightness(config.background_color, -20)} 100%); font-family: ${customFont}, ${baseFontStack};" class="h-full w-full flex flex-col items-center justify-center p-3 sm:p-6">
+          
+          <div style="background: ${config.surface_color};" class="w-full max-w-md sm:max-w-2xl rounded-3xl shadow-2xl p-5 sm:p-8 slide-in">
+            
+            <div class="flex justify-between items-center mb-5 sm:mb-6">
+              <h1 style="color: ${config.text_color}; font-size: ${baseSize * 1.8}px;" class="font-bold sm:text-3xl">
+                ${config.game_title}
+              </h1>
+              <div style="background: ${config.primary_action_color}; color: ${config.surface_color}; font-size: ${baseSize * 0.85}px;" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full font-bold shadow-lg whitespace-nowrap">
+                🏆 <span id="score-display">${score}/${totalQuestions}</span>
               </div>
             </div>
             
-            <h1 style="color: ${config.text_color}; font-size: ${baseSize * 2.5}px;" class="text-center font-bold mb-8 mt-8">
-              ${config.game_title}
-            </h1>
-            
-            <div class="mb-8">
-              <p style="color: ${config.text_color}; font-size: ${baseSize * 1.25}px;" class="text-center mb-6">
+            <div class="mb-6 sm:mb-8">
+              <p style="color: ${config.text_color}; font-size: ${baseSize * 1.1}px;" class="text-center mb-6 sm:mb-8 font-medium sm:text-xl">
                 ${config.question_text}
               </p>
               
-              <div class="flex items-center justify-center gap-4 mb-8">
-                <div style="background: ${config.background_color}; color: ${config.surface_color}; font-size: ${baseSize * 2.5}px;" class="w-24 h-24 rounded-2xl flex items-center justify-center font-bold shadow-lg bounce-animation">
+              <div class="flex items-center justify-center gap-3 sm:gap-5 mb-6 sm:mb-8">
+                <div style="background: linear-gradient(135deg, ${config.background_color} 0%, ${adjustBrightness(config.background_color, 20)} 100%); color: ${config.surface_color}; font-size: ${baseSize * 2.2}px;" class="number-box w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center font-bold shadow-xl pulse-animation">
                   ${currentQuestion.num1}
                 </div>
-                <span style="color: ${config.text_color}; font-size: ${baseSize * 1.5}px;" class="font-bold">dan</span>
-                <div style="background: ${config.background_color}; color: ${config.surface_color}; font-size: ${baseSize * 2.5}px;" class="w-24 h-24 rounded-2xl flex items-center justify-center font-bold shadow-lg bounce-animation">
+                <span style="color: ${config.text_color}; font-size: ${baseSize * 1.2}px;" class="font-bold sm:text-xl">dan</span>
+                <div style="background: linear-gradient(135deg, ${config.background_color} 0%, ${adjustBrightness(config.background_color, 20)} 100%); color: ${config.surface_color}; font-size: ${baseSize * 2.2}px;" class="number-box w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center font-bold shadow-xl pulse-animation">
                   ${currentQuestion.num2}
                 </div>
               </div>
               
-              <div class="grid grid-cols-3 gap-4">
+              <div class="grid grid-cols-3 gap-3 sm:gap-4">
                 ${currentQuestion.options.map(option => `
                   <button 
-                    onclick="checkAnswer(${option})"
+                    class="answer-btn h-16 sm:h-20 rounded-xl sm:rounded-2xl font-bold shadow-lg transition-all transform active:scale-95"
                     style="background: ${config.background_color}; color: ${config.surface_color}; font-size: ${baseSize * 1.5}px;"
-                    class="option-button h-20 rounded-xl font-bold shadow-lg hover:opacity-90 transition-all transform hover:scale-105"
+                    data-value="${option}"
+                    onclick="handleAnswer(${option})"
                   >
                     ${option}
                   </button>
@@ -249,21 +290,29 @@
             <button 
               onclick="resetGame()"
               style="background: ${config.secondary_action_color}; color: ${config.surface_color}; font-size: ${baseSize}px;"
-              class="w-full py-3 rounded-xl font-bold shadow-lg hover:opacity-90 transition-all"
+              class="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold shadow-lg hover:opacity-90 transition-all active:scale-95"
             >
-              Reset Game
+              🔄 Reset Game
             </button>
           </div>
           
-          <div style="color: ${config.surface_color}; font-size: ${baseSize * 2}px;" class="mt-8 font-bold tracking-widest">
+          <div style="color: ${config.surface_color}; font-size: ${baseSize * 1.5}px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);" class="mt-5 sm:mt-8 font-bold tracking-widest sm:text-3xl">
             ${config.branding_text}
           </div>
         </div>
       `;
     }
 
+    function adjustBrightness(hex, percent) {
+      const num = parseInt(hex.replace('#', ''), 16);
+      const r = Math.min(255, Math.max(0, (num >> 16) + percent));
+      const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + percent));
+      const b = Math.min(255, Math.max(0, (num & 0x0000FF) + percent));
+      return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+    }
+
     async function onConfigChange(config) {
-      renderGame();
+      render();
     }
 
     const element = {
@@ -335,7 +384,7 @@
     }
 
     currentQuestion = generateQuestion();
-    renderGame();
+    render();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9afb3dc642f86018',t:'MTc2NjAyNTA1OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9afb4899a6ef3db0',t:'MTc2NjAyNTUwMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
